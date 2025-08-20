@@ -1,16 +1,26 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { Plus, Edit2, Trash2, DollarSign, User, Building } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  DollarSign,
+  User,
+  Building,
+  AlertCircle,
+} from "lucide-react";
 import { FixedSizeList as List } from "react-window";
 import { useAppContext } from "../context/AppContext";
 import { useUsers } from "../hooks/useUsers";
-import { Button, Card } from "../components/ui";
+import { Button, Card, StatsSection } from "../components/ui";
+import type { StatItem } from "../components/ui";
 import { UserModal } from "../components/modals/UserModal";
 import { DeleteConfirmModal } from "../components/modals/DeleteConfirmModal";
 import { formatCurrency, formatNumber } from "../lib/utils";
 import type { User as UserType, DeleteTarget } from "../types/types";
 
 const ITEM_HEIGHT = 60;
-const LIST_HEIGHT = 400;
+const MAX_LIST_HEIGHT = 400;
+const MIN_LIST_HEIGHT = 120;
 interface UserRowProps {
   index: number;
   style: React.CSSProperties;
@@ -68,7 +78,7 @@ export const UsersPage: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
-  const [listHeight, setListHeight] = useState(LIST_HEIGHT);
+  const [listHeight, setListHeight] = useState(MAX_LIST_HEIGHT);
 
   const listContainerRef = useRef<HTMLDivElement>(null);
 
@@ -77,17 +87,40 @@ export const UsersPage: React.FC = () => {
 
   useEffect(() => {
     const updateHeight = () => {
+      // Calculate height based on number of items
+      const itemCount = userList.length;
+      const headerHeight = 60;
+
+      if (itemCount === 0) {
+        setListHeight(MIN_LIST_HEIGHT);
+        return;
+      }
+
+      // Calculate ideal height based on items (with some padding)
+      const calculatedHeight = itemCount * ITEM_HEIGHT + 20; // 20px for padding
+
+      // Use container height if available, otherwise use calculated height
       if (listContainerRef.current) {
         const containerHeight = listContainerRef.current.clientHeight;
-        const headerHeight = 60;
-        setListHeight(containerHeight - headerHeight);
+        const availableHeight = containerHeight - headerHeight;
+
+        // Use the smaller of available space or calculated height, but respect min/max
+        const idealHeight = Math.min(calculatedHeight, availableHeight);
+        setListHeight(
+          Math.max(MIN_LIST_HEIGHT, Math.min(MAX_LIST_HEIGHT, idealHeight))
+        );
+      } else {
+        // Fallback when container ref is not available
+        setListHeight(
+          Math.max(MIN_LIST_HEIGHT, Math.min(MAX_LIST_HEIGHT, calculatedHeight))
+        );
       }
     };
 
     updateHeight();
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
-  }, []);
+  }, [userList.length]); // Depend on user list length to recalculate when items change
 
   const totalUsers = userList.length;
   const totalSpending = userList.reduce(
@@ -98,6 +131,33 @@ export const UsersPage: React.FC = () => {
     (sum, user) => sum + user.expenseCount,
     0
   );
+
+  const statsData: StatItem[] = [
+    {
+      icon: User,
+      iconColor: "text-blue-600",
+      iconBgColor: "bg-blue-100",
+      label: "Total Users",
+      value: totalUsers,
+      formatType: "number",
+    },
+    {
+      icon: DollarSign,
+      iconColor: "text-green-600",
+      iconBgColor: "bg-green-100",
+      label: "Total Spending",
+      value: totalSpending,
+      formatType: "currency",
+    },
+    {
+      icon: Building,
+      iconColor: "text-purple-600",
+      iconBgColor: "bg-purple-100",
+      label: "Total Expenses",
+      value: totalExpenses,
+      formatType: "number",
+    },
+  ];
 
   const handleCreate = () => {
     setEditingUser(null);
@@ -156,13 +216,24 @@ export const UsersPage: React.FC = () => {
   if (departmentList.length === 0) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-medium">Users</h1>
-        <div className="border rounded p-8 text-center">
-          <p className="mb-4">
-            No departments available. Create departments first.
-          </p>
-          <Button onClick={() => window.location.reload()}>Refresh</Button>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Users</h1>
+            <p className="text-gray-600">
+              Manage organizational users and track their expenses
+            </p>
+          </div>
         </div>
+        <StatsSection stats={statsData} />
+        <Card className="p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No Departments Found
+          </h3>
+          <p className="text-gray-600 mb-4">
+            You must create at least one Department before you can manage users.
+          </p>
+        </Card>
       </div>
     );
   }
@@ -188,57 +259,8 @@ export const UsersPage: React.FC = () => {
           Add User
         </Button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <User className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatNumber(totalUsers)}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Total Spending
-              </p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(totalSpending)}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Building className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Total Expenses
-              </p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatNumber(totalExpenses)}
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
-      <Card
-        className="border rounded flex-1 flex flex-col min-h-0"
-        ref={listContainerRef}
-      >
+      <StatsSection stats={statsData} />
+      <Card className="border rounded flex flex-col" ref={listContainerRef}>
         <div className="grid grid-cols-5 gap-4 p-4 border-b bg-gray-50 font-medium flex-shrink-0">
           <div>Name</div>
           <div>Department</div>

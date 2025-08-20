@@ -1,5 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useReducer, ReactNode } from "react";
-import { AppState, AppAction, Department, User } from "../types/types";
+import { AppState, AppAction, Department, User, Expense } from "../types/types";
 import { generateId } from "../lib/utils";
 import { generateMockData } from "../data/mockData";
 
@@ -242,6 +243,175 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
       return newState;
     }
+
+     case 'CREATE_EXPENSE': {
+      const { userId, category, description, cost } = action.payload;
+      const id = generateId();
+      const now = new Date();
+      const newExpense: Expense = {
+        id,
+        userId,
+        category,
+        description,
+        cost,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const newState = { ...state };
+      newState.expenses = new Map(state.expenses).set(id, newExpense);
+      newState.users = new Map(state.users);
+      newState.departments = new Map(state.departments);
+      newState.expensesByUser = new Map(state.expensesByUser);
+      
+      const userExpenses = newState.expensesByUser.get(userId) || new Set();
+      userExpenses.add(id);
+      newState.expensesByUser.set(userId, userExpenses);
+      
+      const user = newState.users.get(userId);
+      if (user) {
+        newState.users.set(userId, {
+          ...user,
+          totalSpending: user.totalSpending + cost,
+          expenseCount: user.expenseCount + 1,
+          updatedAt: now,
+        });
+        
+        const dept = newState.departments.get(user.departmentId);
+        if (dept) {
+          newState.departments.set(user.departmentId, {
+            ...dept,
+            totalSpending: dept.totalSpending + cost,
+            updatedAt: now,
+          });
+        }
+      }
+      
+      return newState;
+    }
+
+    case 'UPDATE_EXPENSE': {
+      const { id, userId, category, description, cost } = action.payload;
+      const oldExpense = state.expenses.get(id);
+      if (!oldExpense) return state;
+
+      const newState = { ...state };
+      newState.expenses = new Map(state.expenses);
+      newState.users = new Map(state.users);
+      newState.departments = new Map(state.departments);
+      newState.expensesByUser = new Map(state.expensesByUser);
+      
+      const oldUser = newState.users.get(oldExpense.userId);
+      const newUser = newState.users.get(userId);
+      
+      if (!newUser) return state;
+      
+      const now = new Date();
+      
+      // Update expense
+      newState.expenses.set(id, { 
+        ...oldExpense, 
+        userId, 
+        category, 
+        description, 
+        cost,
+        updatedAt: now,
+      });
+      
+      // If user changed, move expense
+      if (oldExpense.userId !== userId && oldUser) {
+        const oldUserExpenses = newState.expensesByUser.get(oldExpense.userId) || new Set();
+        oldUserExpenses.delete(id);
+        newState.expensesByUser.set(oldExpense.userId, oldUserExpenses);
+        
+        const newUserExpenses = newState.expensesByUser.get(userId) || new Set();
+        newUserExpenses.add(id);
+        newState.expensesByUser.set(userId, newUserExpenses);
+        
+        // Update old user totals
+        newState.users.set(oldExpense.userId, {
+          ...oldUser,
+          totalSpending: oldUser.totalSpending - oldExpense.cost,
+          expenseCount: oldUser.expenseCount - 1,
+          updatedAt: now,
+        });
+        
+        // Update old department totals
+        const oldDept = newState.departments.get(oldUser.departmentId);
+        if (oldDept) {
+          newState.departments.set(oldUser.departmentId, {
+            ...oldDept,
+            totalSpending: oldDept.totalSpending - oldExpense.cost,
+            updatedAt: now,
+          });
+        }
+      }
+      
+      // Update new user totals
+      const costDiff = cost - (oldExpense.userId === userId ? oldExpense.cost : 0);
+      const countDiff = oldExpense.userId === userId ? 0 : 1;
+      
+      newState.users.set(userId, {
+        ...newUser,
+        totalSpending: newUser.totalSpending + costDiff,
+        expenseCount: newUser.expenseCount + countDiff,
+        updatedAt: now,
+      });
+      
+      // Update new department totals
+      const newDept = newState.departments.get(newUser.departmentId);
+      if (newDept) {
+        newState.departments.set(newUser.departmentId, {
+          ...newDept,
+          totalSpending: newDept.totalSpending + costDiff,
+          updatedAt: now,
+        });
+      }
+      
+      return newState;
+    }
+
+    case 'DELETE_EXPENSE': {
+      const { id } = action.payload;
+      const expense = state.expenses.get(id);
+      if (!expense) return state;
+
+      const newState = { ...state };
+      newState.expenses = new Map(state.expenses);
+      newState.users = new Map(state.users);
+      newState.departments = new Map(state.departments);
+      newState.expensesByUser = new Map(state.expensesByUser);
+      
+      const user = newState.users.get(expense.userId);
+      const now = new Date();
+      
+      if (user) {
+        newState.users.set(expense.userId, {
+          ...user,
+          totalSpending: user.totalSpending - expense.cost,
+          expenseCount: user.expenseCount - 1,
+          updatedAt: now,
+        });
+        
+        const dept = newState.departments.get(user.departmentId);
+        if (dept) {
+          newState.departments.set(user.departmentId, {
+            ...dept,
+            totalSpending: dept.totalSpending - expense.cost,
+            updatedAt: now,
+          });
+        }
+      }
+      
+      const userExpenses = newState.expensesByUser.get(expense.userId) || new Set();
+      userExpenses.delete(id);
+      newState.expensesByUser.set(expense.userId, userExpenses);
+      
+      newState.expenses.delete(id);
+      
+      return newState;
+    }
+
 
     case "LOAD_MOCK_DATA":
       return generateMockData();

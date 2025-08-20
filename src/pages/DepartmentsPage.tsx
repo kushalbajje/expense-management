@@ -10,12 +10,14 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  StatsSection,
 } from "../components/ui";
+import type { StatItem } from "../components/ui";
 import { DepartmentModal } from "../components/modals/DepartmentModal";
 import { DeleteConfirmModal } from "../components/modals/DeleteConfirmModal";
 import { formatCurrency, formatNumber } from "../lib/utils";
 import type { Department, DeleteTarget } from "../types/types";
-
+import { AlertCircle } from "lucide-react";
 export const DepartmentsPage: React.FC = () => {
   const { state } = useAppContext();
   const { departments, createDepartment, updateDepartment, deleteDepartment } =
@@ -77,12 +79,16 @@ export const DepartmentsPage: React.FC = () => {
   };
 
   const handleSubmit = async (data: { name: string }) => {
-    if (editingDepartment) {
-      await updateDepartment(editingDepartment.id, data.name);
-    } else {
-      await createDepartment(data.name);
+    try {
+      if (editingDepartment) {
+        await updateDepartment(editingDepartment.id, data.name);
+      } else {
+        await createDepartment(data.name);
+      }
+      handleModalClose();
+    } catch (error) {
+      console.error("Error in handleSubmit:", error);
     }
-    handleModalClose();
   };
 
   const handleConfirmDelete = async (reassignTo?: string) => {
@@ -103,13 +109,40 @@ export const DepartmentsPage: React.FC = () => {
     0
   );
 
+  const statsData: StatItem[] = [
+    {
+      icon: Building,
+      iconColor: "text-blue-600",
+      iconBgColor: "bg-blue-100",
+      label: "Total Departments",
+      value: totalDepartments,
+      formatType: "number",
+    },
+    {
+      icon: Users,
+      iconColor: "text-green-600",
+      iconBgColor: "bg-green-100",
+      label: "Total Users",
+      value: totalUsers,
+      formatType: "number",
+    },
+    {
+      icon: DollarSign,
+      iconColor: "text-yellow-600",
+      iconBgColor: "bg-yellow-100",
+      label: "Total Spending",
+      value: totalSpending,
+      formatType: "currency",
+    },
+  ];
+
   return (
     <div className="h-full flex flex-col space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Department</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Departments</h1>
             <p className="text-gray-600">
               Manage organizational departments and track spending
             </p>
@@ -122,89 +155,46 @@ export const DepartmentsPage: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-shrink-0">
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Building className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Total Departments
-              </p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatNumber(totalDepartments)}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Users className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatNumber(totalUsers)}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-yellow-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Total Spending
-              </p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(totalSpending)}
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
+      <StatsSection stats={statsData} />
 
       {/* Departments Table */}
-      <Card className="flex-1 flex flex-col min-h-0" ref={tableContainerRef}>
-        <div className="flex-shrink-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableCell isHeader>Department Name</TableCell>
-                <TableCell isHeader>Total Users</TableCell>
-                <TableCell isHeader>Total Spending</TableCell>
-                <TableCell isHeader>Created</TableCell>
-                <TableCell isHeader>Actions</TableCell>
-              </TableRow>
-            </TableHeader>
-          </Table>
-        </div>
 
-        {/* Scrollable Table Body */}
-        <div
-          className="flex-1 overflow-auto"
-          style={{ maxHeight: tableHeight }}
-        >
-          <Table>
-            <TableBody>
-              {departmentList.length === 0 ? (
+      {departmentList.length === 0 ? (
+        <Card className="p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Get Started with Departments
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Create your first department to begin organizing and tracking
+            expenses across your organization.
+          </p>
+        </Card>
+      ) : (
+        <Card className="flex-1 flex flex-col min-h-0" ref={tableContainerRef}>
+          <div className="flex-shrink-0">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    className="text-center py-8 text-gray-500"
-                    colSpan={5}
-                  >
-                    No departments found. Create your first department to get
-                    started.
-                  </TableCell>
+                  <TableCell isHeader>Department Name</TableCell>
+                  <TableCell isHeader>Total Users</TableCell>
+                  <TableCell isHeader>Total Spending</TableCell>
+                  <TableCell isHeader>Created</TableCell>
+                  <TableCell isHeader>Actions</TableCell>
                 </TableRow>
-              ) : (
-                departmentList.map((department) => (
+              </TableHeader>
+            </Table>
+          </div>
+
+          {/* Scrollable Table Body */}
+
+          <div
+            className="flex-1 overflow-auto"
+            style={{ maxHeight: tableHeight }}
+          >
+            <Table>
+              <TableBody>
+                {departmentList.map((department) => (
                   <TableRow key={department.id}>
                     <TableCell>
                       <div className="font-medium text-gray-900">
@@ -232,14 +222,14 @@ export const DepartmentsPage: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleEdit(department)}
-                          className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                          className="p-1 hover:bg-gray-100 rounded"
                           title="Edit department"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(department)}
-                          className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                          className="p-1 hover:bg-gray-100 rounded"
                           title="Delete department"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -247,12 +237,12 @@ export const DepartmentsPage: React.FC = () => {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      )}
 
       {/* Modals */}
       <DepartmentModal
