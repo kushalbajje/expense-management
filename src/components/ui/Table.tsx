@@ -1,20 +1,25 @@
 import React from "react";
 
-// Card Component
+// Card Component with ref forwarding
 interface CardProps {
   children: React.ReactNode;
   className?: string;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = "" }) => {
-  return (
-    <div
-      className={`bg-white rounded-lg shadow-sm border border-gray-200 ${className}`}
-    >
-      {children}
-    </div>
-  );
-};
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ children, className = "" }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={`bg-white rounded-lg shadow-sm border border-gray-200 ${className}`}
+      >
+        {children}
+      </div>
+    );
+  }
+);
+
+Card.displayName = "Card";
 
 // Table Components
 interface TableProps {
@@ -63,7 +68,7 @@ export const TableCell: React.FC<TableCellProps> = ({
 }) => {
   const baseClasses = "px-6 py-4 text-sm";
   const headerClasses =
-    "font-medium text-gray-500 uppercase tracking-wider text-left";
+    "font-medium text-black uppercase tracking-wider text-left";
   const cellClasses = "text-gray-900";
 
   const Component = isHeader ? "th" : "td";
