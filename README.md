@@ -160,7 +160,6 @@ The core business logic, architectural decisions, and implementation strategy re
 - **Web Workers**: Offload heavy computational tasks (data processing, sorting, filtering) to background threads
 - **IndexedDB Integration**: Client-side data storage for offline capabilities and reduced server requests
 - **Virtual Scrolling**: Enhanced virtualization for millions of records with dynamic row heights
-- **Data Streaming**: Real-time data updates and progressive loading for live expense tracking
 
 
 Happy Otto
