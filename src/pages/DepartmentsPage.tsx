@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Plus, Edit2, Trash2, Users, DollarSign, Building } from "lucide-react";
 import { useAppContext } from "../context/AppContext";
 import { useDepartments } from "../hooks/useDepartments";
@@ -27,6 +27,25 @@ export const DepartmentsPage: React.FC = () => {
     null
   );
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [tableHeight, setTableHeight] = useState(400);
+
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updateHeight = () => {
+      if (tableContainerRef.current) {
+        const containerHeight = tableContainerRef.current.clientHeight;
+        const headerHeight = 64; // Height of table header
+        setTableHeight(containerHeight - headerHeight);
+      }
+    };
+
+    // Initial calculation
+    setTimeout(updateHeight, 100); // Allow for layout to settle
+
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
 
   const handleCreate = () => {
     setEditingDepartment(null);
@@ -85,15 +104,12 @@ export const DepartmentsPage: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-3">
-          <Building className="w-8 h-8 text-blue-600" />
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Department Management
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-900">Department</h1>
             <p className="text-gray-600">
               Manage organizational departments and track spending
             </p>
@@ -106,7 +122,7 @@ export const DepartmentsPage: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-shrink-0">
         <Card className="p-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -155,82 +171,87 @@ export const DepartmentsPage: React.FC = () => {
       </div>
 
       {/* Departments Table */}
-      <Card>
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
-            All Departments
-          </h2>
+      <Card className="flex-1 flex flex-col min-h-0" ref={tableContainerRef}>
+        <div className="flex-shrink-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableCell isHeader>Department Name</TableCell>
+                <TableCell isHeader>Total Users</TableCell>
+                <TableCell isHeader>Total Spending</TableCell>
+                <TableCell isHeader>Created</TableCell>
+                <TableCell isHeader>Actions</TableCell>
+              </TableRow>
+            </TableHeader>
+          </Table>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableCell isHeader>Department Name</TableCell>
-              <TableCell isHeader>Total Users</TableCell>
-              <TableCell isHeader>Total Spending</TableCell>
-              <TableCell isHeader>Created</TableCell>
-              <TableCell isHeader>Actions</TableCell>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {departmentList.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  className="text-center py-8 text-gray-500"
-                  colSpan={5}
-                >
-                  No departments found. Create your first department to get
-                  started.
-                </TableCell>
-              </TableRow>
-            ) : (
-              departmentList.map((department) => (
-                <TableRow key={department.id}>
-                  <TableCell>
-                    <div className="font-medium text-gray-900">
-                      {department.name}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4 text-gray-400" />
-                      <span>{formatNumber(department.userCount)}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <DollarSign className="w-4 h-4 text-gray-400" />
-                      <span>{formatCurrency(department.totalSpending)}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-gray-500">
-                      {new Date(department.createdAt).toLocaleDateString()}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleEdit(department)}
-                        className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
-                        title="Edit department"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(department)}
-                        className="p-1 text-red-600 hover:text-red-800 transition-colors"
-                        title="Delete department"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+        {/* Scrollable Table Body */}
+        <div
+          className="flex-1 overflow-auto"
+          style={{ maxHeight: tableHeight }}
+        >
+          <Table>
+            <TableBody>
+              {departmentList.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    className="text-center py-8 text-gray-500"
+                    colSpan={5}
+                  >
+                    No departments found. Create your first department to get
+                    started.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                departmentList.map((department) => (
+                  <TableRow key={department.id}>
+                    <TableCell>
+                      <div className="font-medium text-gray-900">
+                        {department.name}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Users className="w-4 h-4 text-gray-400" />
+                        <span>{formatNumber(department.userCount)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="w-4 h-4 text-gray-400" />
+                        <span>{formatCurrency(department.totalSpending)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-gray-500">
+                        {new Date(department.createdAt).toLocaleDateString()}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEdit(department)}
+                          className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                          title="Edit department"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(department)}
+                          className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                          title="Delete department"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
       {/* Modals */}

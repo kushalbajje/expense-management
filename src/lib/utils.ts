@@ -49,3 +49,23 @@ export const validateDepartmentName = (
 
   return null;
 };
+
+export const validateUserData = (firstName: string, lastName: string, departmentId: string): string | null => {
+  if (!firstName.trim()) {
+    return 'First name is required';
+  }
+  
+  if (!lastName.trim()) {
+    return 'Last name is required';
+  }
+  
+  if (!departmentId) {
+    return 'Department selection is required';
+  }
+  
+  if (firstName.trim().length < 2 || lastName.trim().length < 2) {
+    return 'Names must be at least 2 characters';
+  }
+  
+  return null;
+};
