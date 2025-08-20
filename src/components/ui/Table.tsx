@@ -29,14 +29,12 @@ interface TableProps {
 
 export const Table: React.FC<TableProps> = ({ children, className = "" }) => {
   return (
-    <div className="overflow-hidden">
-      <table className={`w-full ${className}`}>{children}</table>
-    </div>
+    <table className={`w-full ${className}`}>{children}</table>
   );
 };
 
 export const TableHeader: React.FC<TableProps> = ({ children }) => {
-  return <thead className="bg-gray-50">{children}</thead>;
+  return <thead className="bg-gray-50 sticky top-0 z-10">{children}</thead>;
 };
 
 export const TableBody: React.FC<TableProps> = ({ children }) => {

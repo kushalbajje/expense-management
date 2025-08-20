@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import {
   Plus,
   Edit2,
@@ -11,6 +11,7 @@ import {
 import { FixedSizeList as List } from "react-window";
 import { useAppContext } from "../context/AppContext";
 import { useExpenses } from "../hooks/useExpenses";
+import { useSimpleExpenses } from "../hooks/useSimpleExpenses";
 import { Button, Card, StatsSection } from "../components/ui";
 import type { StatItem } from "../components/ui";
 import { ExpenseModal } from "../components/modals/ExpenseModal";
@@ -20,7 +21,6 @@ import type { Expense, ExpenseCategory, DeleteTarget } from "../types/types";
 
 const ITEM_HEIGHT = 80;
 const MAX_LIST_HEIGHT = 400;
-const MIN_LIST_HEIGHT = 120;
 
 interface ExpenseRowProps {
   index: number;
@@ -88,15 +88,20 @@ const ExpenseRow: React.FC<ExpenseRowProps> = ({ index, style, data }) => {
 
 export const ExpensesPage: React.FC = () => {
   const { state } = useAppContext();
-  const { expenses, createExpense, updateExpense, deleteExpense } =
-    useExpenses();
+  const { createExpense, updateExpense, deleteExpense } = useExpenses();
+  const {
+    expenses: paginatedExpenses,
+    totalExpenses,
+    loadedExpenseCount,
+    hasNextPage,
+    loadNextPage,
+  } = useSimpleExpenses({ pageSize: 1000 });
 
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
-  const [listHeight, setListHeight] = useState(MAX_LIST_HEIGHT);
-
+  const listHeight = MAX_LIST_HEIGHT;
   const listContainerRef = useRef<HTMLDivElement>(null);
 
   const handleCreate = () => {
@@ -163,60 +168,20 @@ export const ExpensesPage: React.FC = () => {
     }
   };
 
-  const expenseList = useMemo(
-    () =>
-      Array.from(expenses.values()).sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      ),
-    [expenses]
-  );
+  // Reset pagination when expenses change significantly
+  const expenseList = paginatedExpenses;
   const userList = Array.from(state.users.values());
   const hasUsers = userList.length > 0;
 
-  useEffect(() => {
-    const updateHeight = () => {
-      // Calculate height based on number of items
-      const itemCount = expenseList.length;
-      const headerHeight = 60;
+  // Using fixed height for consistent performance
 
-      if (itemCount === 0) {
-        setListHeight(MIN_LIST_HEIGHT);
-        return;
-      }
-
-      // Calculate ideal height based on items (with some padding)
-      const calculatedHeight = itemCount * ITEM_HEIGHT + 20; // 20px for padding
-
-      // Use container height if available, otherwise use calculated height
-      if (listContainerRef.current) {
-        const containerHeight = listContainerRef.current.clientHeight;
-        const availableHeight = containerHeight - headerHeight;
-
-        // Use the smaller of available space or calculated height, but respect min/max
-        const idealHeight = Math.min(calculatedHeight, availableHeight);
-        setListHeight(
-          Math.max(MIN_LIST_HEIGHT, Math.min(MAX_LIST_HEIGHT, idealHeight))
-        );
-      } else {
-        // Fallback when container ref is not available
-        setListHeight(
-          Math.max(MIN_LIST_HEIGHT, Math.min(MAX_LIST_HEIGHT, calculatedHeight))
-        );
-      }
-    };
-
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, [expenseList.length]); // Depend on expense list length to recalculate when items change
-
-  const totalExpenses = expenseList.length;
+  const displayedExpenses = expenseList.length;
   const totalSpending = expenseList.reduce(
     (sum, expense) => sum + expense.cost,
     0
   );
-  const averageExpense = totalExpenses > 0 ? totalSpending / totalExpenses : 0;
+  const averageExpense =
+    displayedExpenses > 0 ? totalSpending / displayedExpenses : 0;
 
   const statsData: StatItem[] = [
     {
@@ -266,9 +231,6 @@ export const ExpensesPage: React.FC = () => {
           <p className="text-gray-600 mb-4">
             You must create at least one user before you can manage expenses.
           </p>
-          <Button onClick={() => (window.location.href = "/users")}>
-            Go to User Management
-          </Button>
         </Card>
       </div>
     );
@@ -313,20 +275,45 @@ export const ExpensesPage: React.FC = () => {
             No expenses found. Create your first expense to get started.
           </div>
         ) : (
-          <List
-            height={listHeight}
-            width="100%"
-            itemCount={expenseList.length}
-            itemSize={ITEM_HEIGHT}
-            itemData={{
-              expenses: expenseList,
-              users: state.users,
-              onEdit: handleEdit,
-              onDelete: handleDelete,
-            }}
-          >
-            {ExpenseRow}
-          </List>
+          <div>
+            {totalExpenses > loadedExpenseCount && (
+              <div className="p-3 bg-blue-50 border-l-4 border-blue-400 text-blue-700 text-sm flex justify-between items-center">
+                <span>
+                  <strong>Incremental Loading:</strong> Showing{" "}
+                  {loadedExpenseCount.toLocaleString()} of{" "}
+                  {totalExpenses.toLocaleString()} total expenses.
+                </span>
+                {hasNextPage && (
+                  <button
+                    onClick={loadNextPage}
+                    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                  >
+                    Load More (1,000)
+                  </button>
+                )}
+              </div>
+            )}
+            <List
+              height={listHeight}
+              width="100%"
+              itemCount={expenseList.length}
+              itemSize={ITEM_HEIGHT}
+              itemData={{
+                expenses: expenseList,
+                users: state.users,
+                onEdit: handleEdit,
+                onDelete: handleDelete,
+              }}
+              onItemsRendered={({ visibleStopIndex }) => {
+                // Auto-load next page when user scrolls near the end
+                if (hasNextPage && visibleStopIndex > expenseList.length - 50) {
+                  loadNextPage();
+                }
+              }}
+            >
+              {ExpenseRow}
+            </List>
+          </div>
         )}
       </Card>
 

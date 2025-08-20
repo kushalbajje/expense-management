@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { Plus, Edit2, Trash2, Users, DollarSign, Building } from "lucide-react";
 import { useAppContext } from "../context/AppContext";
 import { useDepartments } from "../hooks/useDepartments";
@@ -29,25 +29,7 @@ export const DepartmentsPage: React.FC = () => {
     null
   );
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
-  const [tableHeight, setTableHeight] = useState(400);
-
   const tableContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const updateHeight = () => {
-      if (tableContainerRef.current) {
-        const containerHeight = tableContainerRef.current.clientHeight;
-        const headerHeight = 64; // Height of table header
-        setTableHeight(containerHeight - headerHeight);
-      }
-    };
-
-    // Initial calculation
-    setTimeout(updateHeight, 100); // Allow for layout to settle
-
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
 
   const handleCreate = () => {
     setEditingDepartment(null);
@@ -171,8 +153,8 @@ export const DepartmentsPage: React.FC = () => {
           </p>
         </Card>
       ) : (
-        <Card className="flex-1 flex flex-col min-h-0" ref={tableContainerRef}>
-          <div className="flex-shrink-0">
+        <Card className="flex-1 flex flex-col overflow-hidden" ref={tableContainerRef}>
+          <div className="flex-1 overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -183,16 +165,6 @@ export const DepartmentsPage: React.FC = () => {
                   <TableCell isHeader>Actions</TableCell>
                 </TableRow>
               </TableHeader>
-            </Table>
-          </div>
-
-          {/* Scrollable Table Body */}
-
-          <div
-            className="flex-1 overflow-auto"
-            style={{ maxHeight: tableHeight }}
-          >
-            <Table>
               <TableBody>
                 {departmentList.map((department) => (
                   <TableRow key={department.id}>

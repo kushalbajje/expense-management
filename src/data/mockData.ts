@@ -175,7 +175,7 @@ export function generateMockData(): AppState {
     department.userCount++;
 
     // Create expenses for each user
-    const expenseCount = Math.floor(Math.random() * 10) + 100; // 1000-2000 expenses per user
+    const expenseCount = Math.floor(Math.random() * 1000) + 1000; // 1000-2000 expenses per user
     for (let j = 0; j < expenseCount; j++) {
       const expenseId = generateId();
       const cost = Math.floor(Math.random() * 1000) + 10; // $10-$1010
