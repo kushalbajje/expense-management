@@ -24,6 +24,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      console.log('DepartmentModal opened');
       setName(editingDepartment?.name || '');
       setError(null);
       setIsSubmitting(false);
