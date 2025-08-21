@@ -7,6 +7,7 @@ import { generateMockData } from "../data/mockData";
 interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
+  isLoading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -414,7 +415,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
 
     case "LOAD_MOCK_DATA":
-      return generateMockData();
+      return action.payload || state;
 
     case "RESET_DATA":
       return initialState;
@@ -430,9 +431,30 @@ interface AppProviderProps {
 
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const loadMockData = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const mockData = await generateMockData();
+      dispatch({ type: "LOAD_MOCK_DATA", payload: mockData });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const enhancedDispatch = React.useCallback(async (action: AppAction | (() => Promise<void>)) => {
+    if (typeof action === 'function') {
+      await action();
+    } else if (action.type === 'LOAD_MOCK_DATA' && !action.payload) {
+      await loadMockData();
+    } else {
+      dispatch(action);
+    }
+  }, [loadMockData]);
 
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ state, dispatch: enhancedDispatch, isLoading }}>
       {children}
     </AppContext.Provider>
   );

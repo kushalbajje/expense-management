@@ -4,5 +4,6 @@ export { Input } from './Input';
 export { Select } from './Select';
 export { Modal } from './Modal';
 export { Card, Table, TableHeader, TableBody, TableRow, TableCell } from './Table';
+export { SearchBar } from './SearchBar';
 export { StatsSection } from './StatsSection';
 export type { StatItem } from './StatsSection';

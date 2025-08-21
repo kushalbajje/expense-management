@@ -7,11 +7,13 @@ import {
   User,
   Building,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { FixedSizeList as List } from "react-window";
 import { useAppContext } from "../context/AppContext";
 import { useUsers } from "../hooks/useUsers";
 import { Button, Card, StatsSection } from "../components/ui";
+import { SearchBar } from "../components/ui/SearchBar";
 import type { StatItem } from "../components/ui";
 import { UserModal } from "../components/modals/UserModal";
 import { DeleteConfirmModal } from "../components/modals/DeleteConfirmModal";
@@ -40,8 +42,11 @@ const UserRow: React.FC<UserRowProps> = ({ index, style, data }) => {
   return (
     <div
       style={style}
-      className="grid grid-cols-5 gap-4 p-4 border-b hover:bg-gray-50"
+      className="grid grid-cols-6 gap-4 p-4 border-b hover:bg-gray-50"
     >
+      <div className="flex items-center">
+        <span className="text-sm text-gray-500 font-mono">#{index + 1}</span>
+      </div>
       <div className="flex items-center">
         {user.firstName} {user.lastName}
       </div>
@@ -53,14 +58,14 @@ const UserRow: React.FC<UserRowProps> = ({ index, style, data }) => {
       <div className="flex items-center gap-2">
         <button
           onClick={() => onEdit(user)}
-          className="p-1 hover:bg-gray-100 rounded"
+         className="p-1 text-black hover:bg-gray-300 rounded"
           title="Edit user"
         >
           <Edit2 className="w-4 h-4" />
         </button>
         <button
           onClick={() => onDelete(user)}
-          className="p-1 hover:bg-gray-100 rounded"
+         className="p-1 text-black hover:bg-gray-300 rounded"
           title="Delete user"
         >
           <Trash2 className="w-4 h-4" />
@@ -72,7 +77,12 @@ const UserRow: React.FC<UserRowProps> = ({ index, style, data }) => {
 
 export const UsersPage: React.FC = () => {
   const { state } = useAppContext();
-  const { users, createUser, updateUser, deleteUser } = useUsers();
+  const [searchInput, setSearchInput] = useState("");
+  const [activeSearchTerm, setActiveSearchTerm] = useState("");
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+
+  const { filteredUsers, isSearching, createUser, updateUser, deleteUser } =
+    useUsers({ searchTerm: activeSearchTerm });
 
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -82,45 +92,55 @@ export const UsersPage: React.FC = () => {
 
   const listContainerRef = useRef<HTMLDivElement>(null);
 
-  const userList = useMemo(() => Array.from(users.values()), [users]);
+  const handleSearch = async () => {
+    const trimmed = searchInput.trim();
+    if (trimmed === activeSearchTerm) return;
+    
+    setIsSearchLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    setActiveSearchTerm(trimmed);
+    setIsSearchLoading(false);
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    setActiveSearchTerm("");
+    setIsSearchLoading(false);
+  };
+
+  const userList = useMemo(
+    () => Array.from(filteredUsers.values()),
+    [filteredUsers]
+  );
   const departmentList = Array.from(state.departments.values());
 
   useEffect(() => {
     const updateHeight = () => {
       // Calculate height based on number of items
       const itemCount = userList.length;
-      const headerHeight = 60;
-
       if (itemCount === 0) {
         setListHeight(MIN_LIST_HEIGHT);
         return;
       }
 
-      // Calculate ideal height based on items (with some padding)
-      const calculatedHeight = itemCount * ITEM_HEIGHT + 20; // 20px for padding
-
-      // Use container height if available, otherwise use calculated height
-      if (listContainerRef.current) {
-        const containerHeight = listContainerRef.current.clientHeight;
-        const availableHeight = containerHeight - headerHeight;
-
-        // Use the smaller of available space or calculated height, but respect min/max
-        const idealHeight = Math.min(calculatedHeight, availableHeight);
-        setListHeight(
-          Math.max(MIN_LIST_HEIGHT, Math.min(MAX_LIST_HEIGHT, idealHeight))
-        );
-      } else {
-        // Fallback when container ref is not available
-        setListHeight(
-          Math.max(MIN_LIST_HEIGHT, Math.min(MAX_LIST_HEIGHT, calculatedHeight))
-        );
+      if (itemCount * ITEM_HEIGHT > MAX_LIST_HEIGHT) {
+        setListHeight(MAX_LIST_HEIGHT);
+        return;
       }
+
+      const calculatedHeight = itemCount * ITEM_HEIGHT + 20;
+      setListHeight(Math.max(MIN_LIST_HEIGHT, calculatedHeight));
     };
 
-    updateHeight();
+    // Use setTimeout to ensure DOM updates are complete
+    const timeoutId = setTimeout(updateHeight, 0);
+
     window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, [userList.length]); // Depend on user list length to recalculate when items change
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [userList.length, activeSearchTerm]);
 
   const totalUsers = userList.length;
   const totalSpending = userList.reduce(
@@ -249,19 +269,32 @@ export const UsersPage: React.FC = () => {
     <div className="h-full flex flex-col space-y-6">
       <div className="flex justify-between items-center flex-shrink-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">User</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Users</h1>
           <p className="text-gray-600">
             Manage organizational users and track their expenses
           </p>
         </div>
-        <Button onClick={handleCreate} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Add User
-        </Button>
+        <div className="flex items-center gap-4">
+          <SearchBar
+            value={searchInput}
+            onChange={setSearchInput}
+            onSearch={handleSearch}
+            onClear={handleClearSearch}
+            placeholder="Search users, departments"
+            isSearching={isSearching}
+            isLoading={isSearchLoading}
+            className="w-72"
+          />
+          <Button onClick={handleCreate} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Add User
+          </Button>
+        </div>
       </div>
       <StatsSection stats={statsData} />
       <Card className="border rounded flex flex-col" ref={listContainerRef}>
-        <div className="grid grid-cols-5 gap-4 p-4 border-b bg-gray-50 font-medium flex-shrink-0">
+        <div className="grid grid-cols-6 gap-4 p-4 border-b bg-gray-50 font-medium flex-shrink-0">
+          <div>#</div>
           <div>Name</div>
           <div>Department</div>
           <div>Spending</div>
@@ -269,8 +302,27 @@ export const UsersPage: React.FC = () => {
           <div>Actions</div>
         </div>
 
-        {userList.length === 0 ? (
-          <div className="p-8 text-center">No users found</div>
+        {isSearchLoading ? (
+          <div className="p-8 text-center">
+            <div className="flex items-center justify-center mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
+              <span>Searching users...</span>
+            </div>
+          </div>
+        ) : userList.length === 0 ? (
+          <div className="p-8 text-center">
+            {isSearching ? (
+              <div>
+                <p>No users found matching "{activeSearchTerm}"</p>
+                <p className="text-sm mt-2">Try adjusting your search terms or <button 
+                  onClick={handleClearSearch}
+                  className="text-blue-600 hover:underline"
+                >clear the search</button></p>
+              </div>
+            ) : (
+              <p>No users found</p>
+            )}
+          </div>
         ) : (
           <List
             height={listHeight}
