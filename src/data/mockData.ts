@@ -7,7 +7,9 @@ import type {
 } from "../types/types";
 import { generateId } from "../lib/utils";
 
-export function generateMockData(): AppState {
+export async function generateMockData(): Promise<AppState> {
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 1000)); // 1-3 second delay
   const mockState: AppState = {
     departments: new Map(),
     users: new Map(),
@@ -218,8 +220,3 @@ export function generateMockData(): AppState {
 
   return mockState;
 }
-
-// Updated AppContext to handle LOAD_MOCK_DATA action
-export const loadMockDataAction = (): AppState => {
-  return generateMockData();
-};

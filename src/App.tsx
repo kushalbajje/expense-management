@@ -11,17 +11,11 @@ const ExpensesPage = lazy(() => import("./pages/ExpensesPage").then(m => ({ defa
 type Page = "departments" | "users" | "expenses";
 
 const AppContent: React.FC = () => {
-  const { dispatch } = useAppContext();
+  const { dispatch, isLoading } = useAppContext();
   const [activePage, setActivePage] = useState<Page>("departments");
-  const [isLoading, setIsLoading] = useState(false);
 
   const loadMockData = async () => {
-    setIsLoading(true);
-    // Use setTimeout to allow UI to update before heavy computation
-    setTimeout(() => {
-      dispatch({ type: "LOAD_MOCK_DATA" });
-      setIsLoading(false);
-    }, 100);
+    await dispatch({ type: "LOAD_MOCK_DATA" });
   };
 
   const resetData = () => {

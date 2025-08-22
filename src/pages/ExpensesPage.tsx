@@ -7,12 +7,13 @@ import {
   DollarSign,
   User,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { FixedSizeList as List } from "react-window";
 import { useAppContext } from "../context/AppContext";
 import { useExpenses } from "../hooks/useExpenses";
-import { useSimpleExpenses } from "../hooks/useSimpleExpenses";
 import { Button, Card, StatsSection } from "../components/ui";
+import { SearchBar } from "../components/ui/SearchBar";
 import type { StatItem } from "../components/ui";
 import { ExpenseModal } from "../components/modals/ExpenseModal";
 import { DeleteConfirmModal } from "../components/modals/DeleteConfirmModal";
@@ -41,8 +42,11 @@ const ExpenseRow: React.FC<ExpenseRowProps> = ({ index, style, data }) => {
   return (
     <div
       style={style}
-      className="grid grid-cols-6 gap-4 p-4 border-b hover:bg-gray-50"
+      className="grid grid-cols-7 gap-4 p-4 border-b hover:bg-gray-50"
     >
+      <div className="flex items-center">
+        <span className="text-sm text-gray-500 font-mono">#{index + 1}</span>
+      </div>
       <div className="flex items-center gap-2">
         <User className="w-4 h-4 text-gray-400" />
         <span className="font-medium">
@@ -69,14 +73,14 @@ const ExpenseRow: React.FC<ExpenseRowProps> = ({ index, style, data }) => {
       <div className="flex items-center gap-2">
         <button
           onClick={() => onEdit(expense)}
-          className="p-1 hover:bg-gray-100 rounded"
+          className="p-1 text-black hover:bg-gray-300 rounded"
           title="Edit expense"
         >
           <Edit2 className="w-4 h-4" />
         </button>
         <button
           onClick={() => onDelete(expense)}
-          className="p-1 hover:bg-gray-100 rounded"
+         className="p-1 text-black hover:bg-gray-300 rounded"
           title="Delete expense"
         >
           <Trash2 className="w-4 h-4" />
@@ -88,14 +92,20 @@ const ExpenseRow: React.FC<ExpenseRowProps> = ({ index, style, data }) => {
 
 export const ExpensesPage: React.FC = () => {
   const { state } = useAppContext();
-  const { createExpense, updateExpense, deleteExpense } = useExpenses();
+  const [searchInput, setSearchInput] = useState('');
+  const [activeSearchTerm, setActiveSearchTerm] = useState('');
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  
   const {
-    expenses: paginatedExpenses,
+    createExpense,
+    updateExpense,
+    deleteExpense,
+    paginatedExpenses,
     totalExpenses,
-    loadedExpenseCount,
+    isSearching,
     hasNextPage,
     loadNextPage,
-  } = useSimpleExpenses({ pageSize: 1000 });
+  } = useExpenses({ pageSize: 1000, searchTerm: activeSearchTerm });
 
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -103,6 +113,24 @@ export const ExpensesPage: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const listHeight = MAX_LIST_HEIGHT;
   const listContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleSearch = async () => {
+    const trimmed = searchInput.trim();
+    if (trimmed === activeSearchTerm) return; // No change
+    
+    setIsSearchLoading(true);
+    // Small delay to show loading state
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setActiveSearchTerm(trimmed);
+    setIsSearchLoading(false);
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setActiveSearchTerm('');
+    setIsSearchLoading(false);
+  };
+
 
   const handleCreate = () => {
     setEditingExpense(null);
@@ -250,10 +278,22 @@ export const ExpensesPage: React.FC = () => {
             </p>
           </div>
         </div>
-        <Button onClick={handleCreate} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Add Expense
-        </Button>
+        <div className="flex items-center gap-4">
+          <SearchBar
+            value={searchInput}
+            onChange={setSearchInput}
+            onSearch={handleSearch}
+            onClear={handleClearSearch}
+            placeholder="Search expenses, users, categories"
+            isSearching={isSearching}
+            isLoading={isSearchLoading}
+            className="w-80"
+          />
+          <Button onClick={handleCreate} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Add Expense
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -261,7 +301,9 @@ export const ExpensesPage: React.FC = () => {
 
       {/* Expenses Table */}
       <Card className="border rounded flex flex-col" ref={listContainerRef}>
-        <div className="grid grid-cols-6 gap-4 p-4 border-b bg-gray-50 font-medium flex-shrink-0">
+        
+        <div className="grid grid-cols-7 gap-4 p-4 border-b bg-gray-50 font-medium flex-shrink-0">
+          <div>#</div>
           <div>User</div>
           <div>Category</div>
           <div>Description</div>
@@ -270,29 +312,30 @@ export const ExpensesPage: React.FC = () => {
           <div>Actions</div>
         </div>
 
-        {expenseList.length === 0 ? (
+        {isSearchLoading ? (
           <div className="p-8 text-center text-gray-500">
-            No expenses found. Create your first expense to get started.
+            <div className="flex items-center justify-center mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
+              <span>Searching expenses...</span>
+            </div>
+          </div>
+        ) : expenseList.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            {isSearching ? (
+              <div>
+                <p>No expenses found matching "{activeSearchTerm}"</p>
+                <p className="text-sm mt-2">Try adjusting your search terms or <button 
+                  onClick={handleClearSearch}
+                  className="text-blue-600 hover:underline"
+                >clear the search</button></p>
+              </div>
+            ) : (
+              <p>No expenses found. Create your first expense to get started.</p>
+            )}
           </div>
         ) : (
           <div>
-            {totalExpenses > loadedExpenseCount && (
-              <div className="p-3 bg-blue-50 border-l-4 border-blue-400 text-blue-700 text-sm flex justify-between items-center">
-                <span>
-                  <strong>Incremental Loading:</strong> Showing{" "}
-                  {loadedExpenseCount.toLocaleString()} of{" "}
-                  {totalExpenses.toLocaleString()} total expenses.
-                </span>
-                {hasNextPage && (
-                  <button
-                    onClick={loadNextPage}
-                    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                  >
-                    Load More (1,000)
-                  </button>
-                )}
-              </div>
-            )}
+          
             <List
               height={listHeight}
               width="100%"

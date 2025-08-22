@@ -92,7 +92,7 @@ export type AppAction =
   | DepartmentAction
   | UserAction
   | ExpenseAction
-  | { type: "LOAD_MOCK_DATA" }
+  | { type: "LOAD_MOCK_DATA"; payload?: AppState }
   | { type: "RESET_DATA" };
 
 // Modal and UI Types
